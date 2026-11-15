@@ -1,0 +1,23 @@
+[project]
+name = "padel-hub-api"
+version = "0.1.0"
+description = "Backend za rezervaciju padel terena i otvorene mečeve"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+# E/W: stil koda, F: greške (npr. neiskorišten import), I: poredak importa
+select = ["E", "W", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Omogućuje pisanje async def testova bez dodatnih dekoratora
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
