@@ -9,7 +9,6 @@ Sustav omogućuje voditelju padel centra (`admin`) upravljanje terenima i pregle
 ## Brzi linkovi (kad je poslužitelj pokrenut)
 
 - Swagger UI (interaktivno testiranje ruta): http://127.0.0.1:8000/docs
-- ReDoc dokumentacija: http://127.0.0.1:8000/redoc
 - Provjera rada API-ja: http://127.0.0.1:8000/health/
 
 ---
