@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.phases import BookingPhase, get_booking_phase
+from app.core.schedule import validate_player_booking_slot
 from app.models.booking import Booking
 from app.models.match_participant import MatchParticipant
 from app.models.user import User
@@ -54,6 +55,9 @@ async def create_booking(
     now = datetime.now(timezone.utc)
     if body.starts_at <= now:
         raise AppError("slot_in_past", "Termin mora biti u budućnosti", 400)
+
+    if current_user.role != "admin":
+        validate_player_booking_slot(body.starts_at, body.ends_at)
 
     court = await get_court_or_404(db, body.court_id)
 
@@ -134,6 +138,9 @@ async def update_booking(
             "Kapacitet ne može biti manji od broja već prijavljenih igrača",
             400,
         )
+
+    if current_user.role != "admin":
+        validate_player_booking_slot(new_starts_at, new_ends_at)
 
     await get_court_or_404(db, new_court_id)
 

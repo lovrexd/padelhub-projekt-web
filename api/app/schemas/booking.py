@@ -27,6 +27,17 @@ class BookingCreate(BaseModel):
     min_level: float = Field(default=1.0, ge=1.0, le=7.0)
     max_level: float = Field(default=7.0, ge=1.0, le=7.0)
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "court_id": 1,
+                "booking_type": "private",
+                "starts_at": "2027-03-15 18:00+01:00",
+                "ends_at": "2027-03-15 19:30+01:00",
+            }
+        }
+    }
+
     @model_validator(mode="after")
     def validate_ranges(self) -> "BookingCreate":
         if self.starts_at >= self.ends_at:
