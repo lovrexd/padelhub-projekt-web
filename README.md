@@ -35,9 +35,7 @@ docker-compose.yml   # PostgreSQL 16 baza podataka
 
 ---
 
-## Svakodnevno pokretanje (svaki sljedeći put)
-
-Nakon što si **jednom** odradio prvo postavljanje ispod, **NE ponavljaš** `cp .env.example .env` ni `uv venv` — svaki put kad ponovno upališ računalo ili otvoriš novi terminal napraviš samo ova 3 koraka:
+## Svakodnevno pokretanje
 
 ```bash
 # 1) Pokreni PostgreSQL kontejner (iz glavne mape projekta)
@@ -51,7 +49,7 @@ source .venv/bin/activate.fish    # ako koristiš bash/zsh: source .venv/bin/act
 uvicorn app.main:app --reload
 ```
 
-Kad je okruženje `(api)` aktivirano, u istom terminalu (ili drugom terminalu u `api/`) izravno pokrećeš i provjere:
+Kad je okruženje `(api)` aktivirano, izravno pokrećeš i provjere:
 
 ```bash
 pytest -v                # pokretanje svih testova (nad padel_hub_test)
@@ -63,7 +61,7 @@ ruff format --check .    # provjera formatiranja
 
 ---
 
-## Prvo pokretanje (samo JEDNOM nakon `git clone`)
+## Prvo pokretanje (samo JEDNOM)
 
 Ove korake izvodiš samo kad prvi put preuzimaš projekt na računalo:
 
