@@ -75,3 +75,8 @@ class Booking(Base):
     participants: Mapped[list["MatchParticipant"]] = relationship(
         back_populates="booking"
     )
+
+    @property
+    def active_players_count(self) -> int:
+        """Broj trenutno aktivnih igrača prijavljenih u ovaj termin."""
+        return sum(1 for p in self.participants if p.status == "active")
