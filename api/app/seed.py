@@ -7,13 +7,16 @@ Skripta je idempotentna: može se pokrenuti više puta bez dupliranja zapisa.
 """
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal, engine
 from app.core.security import hash_password
-from app.models import Court, User
+from app.models import Booking, Court, MatchParticipant, User
+
+CET = timezone(timedelta(hours=1))
 
 DEMO_USERS = [
     # (username, full_name, password, role, skill_level)
@@ -72,14 +75,117 @@ async def get_or_create_court(
     return court
 
 
+async def get_or_create_booking(
+    session: AsyncSession,
+    court_id: int,
+    creator_id: int,
+    booking_type: str,
+    starts_at: datetime,
+    ends_at: datetime,
+    min_level: float = 1.0,
+    max_level: float = 7.0,
+) -> Booking:
+    result = await session.execute(
+        select(Booking).where(
+            Booking.court_id == court_id,
+            Booking.starts_at == starts_at,
+        )
+    )
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        booking = Booking(
+            court_id=court_id,
+            creator_id=creator_id,
+            booking_type=booking_type,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            cancellation_deadline=starts_at - timedelta(hours=24),
+            max_players=4,
+            min_level=min_level,
+            max_level=max_level,
+        )
+        session.add(booking)
+        await session.flush()
+    return booking
+
+
+async def ensure_participant(
+    session: AsyncSession, booking_id: int, player_id: int
+) -> None:
+    result = await session.execute(
+        select(MatchParticipant).where(
+            MatchParticipant.booking_id == booking_id,
+            MatchParticipant.player_id == player_id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        session.add(
+            MatchParticipant(
+                booking_id=booking_id, player_id=player_id, status="active"
+            )
+        )
+        await session.flush()
+
+
 async def seed() -> None:
     async with AsyncSessionLocal() as session, session.begin():
+        users: dict[str, User] = {}
         for username, full_name, password, role, skill_level in DEMO_USERS:
-            await get_or_create_user(
+            users[username] = await get_or_create_user(
                 session, username, full_name, password, role, skill_level
             )
+
+        courts: dict[str, Court] = {}
         for name, surface, hourly_rate in DEMO_COURTS:
-            await get_or_create_court(session, name, surface, hourly_rate)
+            courts[name] = await get_or_create_court(
+                session, name, surface, hourly_rate
+            )
+
+        # 1) Privatni termin (Teren 1, Ivan)
+        s1 = datetime(2027, 3, 14, 17, 0, tzinfo=CET)
+        await get_or_create_booking(
+            session,
+            court_id=courts["Teren 1 (Panoramic)"].id,
+            creator_id=users["ivan@padel.hr"].id,
+            booking_type="private",
+            starts_at=s1,
+            ends_at=s1 + timedelta(minutes=90),
+        )
+
+        # 2) Otvoreni meč 2/4 igrača za razinu 3.0 - 5.0 (Teren 2, Ana + Ivan)
+        s2 = datetime(2027, 3, 14, 18, 0, tzinfo=CET)
+        open_match = await get_or_create_booking(
+            session,
+            court_id=courts["Teren 2 (Indoor)"].id,
+            creator_id=users["ana@padel.hr"].id,
+            booking_type="open_match",
+            starts_at=s2,
+            ends_at=s2 + timedelta(minutes=90),
+            min_level=3.0,
+            max_level=5.0,
+        )
+        for uname in ("ana@padel.hr", "ivan@padel.hr"):
+            await ensure_participant(session, open_match.id, users[uname].id)
+
+        # 3) Popunjeni otvoreni meč 4/4 igrača (Teren 3)
+        s3 = datetime(2027, 3, 14, 19, 0, tzinfo=CET)
+        full_match = await get_or_create_booking(
+            session,
+            court_id=courts["Teren 3 (Outdoor)"].id,
+            creator_id=users["marko@padel.hr"].id,
+            booking_type="open_match",
+            starts_at=s3,
+            ends_at=s3 + timedelta(minutes=90),
+            min_level=2.0,
+            max_level=5.5,
+        )
+        for uname in (
+            "marko@padel.hr",
+            "ivan@padel.hr",
+            "ana@padel.hr",
+            "petra@padel.hr",
+        ):
+            await ensure_participant(session, full_match.id, users[uname].id)
 
 
 async def main() -> None:

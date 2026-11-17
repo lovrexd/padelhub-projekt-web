@@ -77,6 +77,11 @@ class Booking(Base):
     )
 
     @property
+    def active_participants(self) -> list["MatchParticipant"]:
+        """Aktivni sudionici u ovom otvorenom meču."""
+        return [p for p in self.participants if p.status == "active"]
+
+    @property
     def active_players_count(self) -> int:
         """Broj trenutno aktivnih igrača prijavljenih u ovaj termin."""
-        return sum(1 for p in self.participants if p.status == "active")
+        return len(self.active_participants)
