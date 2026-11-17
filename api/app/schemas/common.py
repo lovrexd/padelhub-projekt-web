@@ -1,13 +1,15 @@
 from typing import Any
 
+MAX_INT32 = 2_147_483_647
+
 
 def reject_null(value: Any) -> Any:
-    """Sprječava postavljanje obaveznog polja na null pri djelomičnoj izmjeni (PATCH).
-
-    Ako polje nije poslano u JSON-u, ovaj validator se ne poziva i zadrži se
-    zadani None (koji exclude_unset=True preskače). Ako klijent izričito
-    pošalje {"polje": null}, validator to odbija s 422.
-    """
     if value is None:
         raise ValueError("Polje ne smije biti null")
+    return value
+
+
+def reject_nul_char(value: str) -> str:
+    if "\x00" in value:
+        raise ValueError("Tekst ne smije sadržavati NUL znak")
     return value

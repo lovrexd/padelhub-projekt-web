@@ -10,8 +10,9 @@ OPENING_TIME = time(9, 0)
 CLOSING_TIME = time(23, 0)
 MIN_BOOKABLE_GAP_SECONDS = 60 * 60
 ALLOWED_DURATIONS_SECONDS = (60 * 60, 90 * 60, 120 * 60)
+CANCELLATION_DEADLINE_HOURS = 6
 
-# Fiksni neradni dani: Nova godina, Božić i Stara godina
+# Neradni dani: Nova godina, Božić i Stara godina (uz Uskrs)
 FIXED_HOLIDAYS = {(1, 1), (12, 25), (12, 31)}
 
 
@@ -21,7 +22,6 @@ class HasTimeSlot(Protocol):
 
 
 def calculate_easter_sunday(year: int) -> date:
-    """Računa datum katoličkog Uskrsa za zadanu godinu (gregorijanski algoritam)."""
     a = year % 19
     b = year // 100
     c = year % 100
@@ -40,15 +40,20 @@ def calculate_easter_sunday(year: int) -> date:
 
 
 def is_club_holiday(day: date) -> bool:
-    """Vraća True ako klub taj dan ne radi (Nova godina, Uskrs, Božić, Stara)."""
     return (day.month, day.day) in FIXED_HOLIDAYS or day == calculate_easter_sunday(
         day.year
     )
 
 
 def club_day_window(starts_at: datetime) -> tuple[datetime, datetime]:
-    """Vraća početak (09:00) i kraj (23:00) radnog dana u lokalnoj zoni."""
-    local_day = starts_at.astimezone(CLUB_TZ).date()
+    try:
+        local_day = starts_at.astimezone(CLUB_TZ).date()
+    except OverflowError:
+        raise AppError(
+            "outside_working_hours",
+            "Igrači mogu rezervirati termine samo unutar radnog vremena (09:00–23:00)",
+            400,
+        )
     return (
         datetime.combine(local_day, OPENING_TIME, tzinfo=CLUB_TZ),
         datetime.combine(local_day, CLOSING_TIME, tzinfo=CLUB_TZ),
@@ -56,9 +61,15 @@ def club_day_window(starts_at: datetime) -> tuple[datetime, datetime]:
 
 
 def validate_player_booking_slot(starts_at: datetime, ends_at: datetime) -> None:
-    """Provjerava radno vrijeme (09-23), blagdane, poravnanje i trajanje za igrače."""
-    local_start = starts_at.astimezone(CLUB_TZ)
-    local_end = ends_at.astimezone(CLUB_TZ)
+    try:
+        local_start = starts_at.astimezone(CLUB_TZ)
+        local_end = ends_at.astimezone(CLUB_TZ)
+    except OverflowError:
+        raise AppError(
+            "outside_working_hours",
+            "Igrači mogu rezervirati termine samo unutar radnog vremena (09:00–23:00)",
+            400,
+        )
 
     if (
         local_start.date() != local_end.date()
@@ -101,7 +112,6 @@ def validate_player_booking_slot(starts_at: datetime, ends_at: datetime) -> None
 def validate_no_orphan_gap(
     starts_at: datetime, ends_at: datetime, day_slots: Sequence[HasTimeSlot]
 ) -> None:
-    """Sprječava ostavljanje rupe kraće od 60 min (npr. 09:00-09:30 ili 22:30-23:00)."""
     day_open, day_close = club_day_window(starts_at)
 
     prev_ends = [s.ends_at for s in day_slots if s.ends_at <= starts_at]

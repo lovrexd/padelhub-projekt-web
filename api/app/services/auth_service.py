@@ -14,13 +14,11 @@ from app.repositories import user_repo
 
 INVALID_CREDENTIALS = "Neispravno korisničko ime ili lozinka"
 
-# Lažni hash: provjera se vrti i kad korisničko ime ne postoji, pa trajanje
-# odgovora (timing attack) ne odaje postoje li računi u bazi
+# Provjera se izvršava i kad korisnik ne postoji radi istog trajanja odgovora
 _DUMMY_HASH = hash_password("dummy-password-for-timing")
 
 
 async def authenticate_user(db: AsyncSession, username: str, password: str) -> User:
-    """Provjerava korisničko ime, lozinku i status računa istim 401 odgovorom."""
     user = await user_repo.get_by_username(db, username)
     password_ok = verify_password(password, user.password_hash if user else _DUMMY_HASH)
     if not user or not password_ok or not user.is_active:
@@ -29,14 +27,12 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> U
 
 
 def create_tokens(user: User) -> tuple[str, str]:
-    """Stvara par (access_token, refresh_token) za prijavljenog korisnika."""
     access = create_access_token(user.id, user.role)
     refresh = create_refresh_token(user.id)
     return access, refresh
 
 
 async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[str, str]:
-    """Provjerava refresh token i vraća novi par pristupnog i refresh tokena."""
     try:
         payload = decode_token(refresh_token)
     except ExpiredSignatureError:
@@ -44,7 +40,7 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[str, str
     except InvalidTokenError:
         raise AppError("invalid_credentials", "Neispravan refresh token", 401)
 
-    # Access token je potpisan istim ključem, pa moramo provjeriti polje type
+    # Access i refresh token dijele tajni ključ, pa provjeravamo polje type
     if payload.get("type") != "refresh":
         raise AppError("invalid_credentials", "Neispravan refresh token", 401)
 

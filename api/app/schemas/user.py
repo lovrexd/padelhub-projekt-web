@@ -2,8 +2,6 @@ from pydantic import BaseModel
 
 
 class UserResponse(BaseModel):
-    """Javni podatci korisničkog računa; password_hash ovdje namjerno ne postoji."""
-
     id: int
     username: str
     full_name: str

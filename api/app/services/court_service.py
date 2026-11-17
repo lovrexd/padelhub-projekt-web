@@ -1,18 +1,20 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.core.schedule import CLUB_TZ
 from app.models.booking import Booking
 from app.models.court import Court
 from app.repositories import court_repo
 from app.schemas.court import CourtCreate, CourtUpdate
 
 
-async def get_court_or_404(db: AsyncSession, court_id: int) -> Court:
-    """Dohvaća teren ili baca 404 ako ne postoji."""
-    court = await court_repo.get_by_id(db, court_id)
+async def get_court_or_404(
+    db: AsyncSession, court_id: int, for_update: bool = False
+) -> Court:
+    court = await court_repo.get_by_id(db, court_id, for_update=for_update)
     if not court:
         raise AppError("not_found", "Teren nije pronađen", 404)
     return court
@@ -24,12 +26,10 @@ async def list_courts(
     limit: int,
     offset: int,
 ) -> list[Court]:
-    """Vraća straničeni popis terena."""
     return await court_repo.list_courts(db, surface, limit, offset)
 
 
 async def create_court(db: AsyncSession, body: CourtCreate) -> Court:
-    """Dodaje novi padel teren uz provjeru jedinstvenosti naziva."""
     court = Court(**body.model_dump())
     try:
         return await court_repo.create(db, court)
@@ -38,7 +38,6 @@ async def create_court(db: AsyncSession, body: CourtCreate) -> Court:
 
 
 async def update_court(db: AsyncSession, court_id: int, body: CourtUpdate) -> Court:
-    """Mijenja samo poslana polja postojećeg terena."""
     court = await get_court_or_404(db, court_id)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(court, field, value)
@@ -50,7 +49,6 @@ async def update_court(db: AsyncSession, court_id: int, body: CourtUpdate) -> Co
 
 
 async def delete_court(db: AsyncSession, court_id: int) -> None:
-    """Briše teren ako na njemu nema nikakvih rezervacija."""
     court = await get_court_or_404(db, court_id)
     if await court_repo.has_bookings(db, court.id):
         raise AppError(
@@ -71,8 +69,7 @@ async def delete_court(db: AsyncSession, court_id: int) -> None:
 async def get_court_availability(
     db: AsyncSession, court_id: int, day: date
 ) -> list[Booking]:
-    """Vraća zauzete vremenske raspone za teren na zadani UTC dan."""
     await get_court_or_404(db, court_id)
-    window_start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+    window_start = datetime(day.year, day.month, day.day, tzinfo=CLUB_TZ)
     window_end = window_start + timedelta(days=1)
     return await court_repo.list_occupied_slots(db, court_id, window_start, window_end)

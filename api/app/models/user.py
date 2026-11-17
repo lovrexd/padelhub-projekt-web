@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 
 
 class User(Base):
-    """Korisnički račun: voditelj centra (admin) ili padel igrač (player)."""
-
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("role IN ('admin', 'player')", name="ck_user_role"),

@@ -5,9 +5,9 @@ from pydantic import (
     AwareDatetime,
     BaseModel,
     Field,
+    StrictInt,
     computed_field,
     field_validator,
-    model_validator,
 )
 
 from app.core.phases import BookingPhase, get_booking_phase
@@ -16,13 +16,10 @@ from app.schemas.court import CourtBrief
 
 
 class BookingCreate(BaseModel):
-    """Podatci za stvaranje privatne rezervacije ili otvorenog meča."""
-
-    court_id: int
+    court_id: StrictInt = Field(ge=1)
     booking_type: Literal["private", "open_match"]
     starts_at: AwareDatetime
     ends_at: AwareDatetime
-    cancellation_deadline: AwareDatetime | None = None
     max_players: Literal[2, 4] = 4
     min_level: float = Field(default=1.0, ge=1.0, le=7.0)
     max_level: float = Field(default=7.0, ge=1.0, le=7.0)
@@ -38,27 +35,27 @@ class BookingCreate(BaseModel):
         }
     }
 
-    @model_validator(mode="after")
-    def validate_ranges(self) -> "BookingCreate":
-        if self.starts_at >= self.ends_at:
+    @field_validator("ends_at")
+    @classmethod
+    def end_after_start(cls, v: datetime, info) -> datetime:
+        start = info.data.get("starts_at")
+        if start and v <= start:
             raise ValueError("Početak termina mora biti prije kraja")
-        if (
-            self.cancellation_deadline is not None
-            and self.cancellation_deadline > self.starts_at
-        ):
-            raise ValueError("Rok za otkazivanje ne može biti nakon početka termina")
-        if self.min_level > self.max_level:
+        return v
+
+    @field_validator("max_level")
+    @classmethod
+    def max_not_below_min(cls, v: float, info) -> float:
+        min_lvl = info.data.get("min_level")
+        if min_lvl is not None and v < min_lvl:
             raise ValueError("Minimalna razina ne smije biti veća od maksimalne")
-        return self
+        return v
 
 
 class BookingUpdate(BaseModel):
-    """Podatci za djelomičnu izmjenu vlastite rezervacije (PATCH)."""
-
-    court_id: int | None = None
+    court_id: StrictInt | None = Field(default=None, ge=1)
     starts_at: AwareDatetime | None = None
     ends_at: AwareDatetime | None = None
-    cancellation_deadline: AwareDatetime | None = None
     max_players: Literal[2, 4] | None = None
     min_level: float | None = Field(default=None, ge=1.0, le=7.0)
     max_level: float | None = Field(default=None, ge=1.0, le=7.0)
@@ -67,7 +64,6 @@ class BookingUpdate(BaseModel):
         "court_id",
         "starts_at",
         "ends_at",
-        "cancellation_deadline",
         "max_players",
         "min_level",
         "max_level",
@@ -76,8 +72,6 @@ class BookingUpdate(BaseModel):
 
 
 class BookingResponse(BaseModel):
-    """Prikaz rezervacije s dinamički izračunatom fazom termina."""
-
     id: int
     court_id: int
     creator_id: int

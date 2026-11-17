@@ -19,7 +19,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 
 def create_access_token(user_id: int, role: str) -> str:
-    """Kratkotrajan pristupni token (15 min) koji se šalje uz svaki zahtjev."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
@@ -32,7 +31,6 @@ def create_access_token(user_id: int, role: str) -> str:
 
 
 def create_refresh_token(user_id: int) -> str:
-    """Dugotrajan token (7 dana) koji služi samo za dobivanje novog para tokena."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
@@ -44,11 +42,6 @@ def create_refresh_token(user_id: int) -> str:
 
 
 def decode_token(token: str) -> dict:
-    """Provjerava potpis, rok trajanja i izdavatelja pa vraća podatke iz tokena.
-
-    Istekli token baca ExpiredSignatureError, a svaki drugi neispravan token
-    InvalidTokenError. Prvi nasljeđuje drugi, pa se u obradi hvata prvi.
-    """
     return jwt.decode(
         token,
         settings.JWT_SECRET,

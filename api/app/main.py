@@ -18,9 +18,8 @@ from app.routers.matches import router as matches_router
 
 
 def create_app(config: Settings = settings) -> FastAPI:
-    """Tvornica FastAPI aplikacije — spaja konfiguraciju, greške i rute."""
     setup_logging(debug=config.ENV == "dev")
-    app = FastAPI(title=config.APP_NAME, debug=config.ENV == "dev")
+    app = FastAPI(title=config.APP_NAME)
 
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)

@@ -6,10 +6,10 @@ from sqlalchemy.orm import selectinload
 
 from app.models.booking import Booking
 from app.models.match_participant import MatchParticipant
+from app.schemas.common import MAX_INT32
 
 
 def _with_details():
-    """Učitava povezane objekte unaprijed (bez problema N+1 i lijenog učitavanja)."""
     return select(Booking).options(
         selectinload(Booking.court),
         selectinload(Booking.creator),
@@ -17,13 +17,18 @@ def _with_details():
     )
 
 
-async def get_by_id(db: AsyncSession, booking_id: int) -> Booking | None:
-    """Dohvaća rezervaciju po ID-u zajedno s terenom i sudionicima."""
+async def get_by_id(
+    db: AsyncSession, booking_id: int, for_update: bool = False
+) -> Booking | None:
+    if not (1 <= booking_id <= MAX_INT32):
+        return None
     stmt = (
         _with_details()
         .where(Booking.id == booking_id)
         .execution_options(populate_existing=True)
     )
+    if for_update:
+        stmt = stmt.with_for_update()
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -37,7 +42,8 @@ async def list_bookings(
     limit: int = 20,
     offset: int = 0,
 ) -> list[Booking]:
-    """Dohvaća rezervacije uz sužavanje na vlasnika, filtre i straničenje."""
+    if court_id is not None and not (1 <= court_id <= MAX_INT32):
+        return []
     stmt = _with_details()
     if creator_id is not None:
         stmt = stmt.where(Booking.creator_id == creator_id)
@@ -59,7 +65,6 @@ async def has_overlapping_booking(
     ends_at: datetime,
     exclude_booking_id: int | None = None,
 ) -> bool:
-    """Provjerava postoji li aktivan termin na terenu koji se vremenski preklapa."""
     conditions = [
         Booking.court_id == court_id,
         Booking.status == "active",
@@ -73,7 +78,6 @@ async def has_overlapping_booking(
 
 
 async def create(db: AsyncSession, booking: Booking) -> Booking:
-    """Dodaje rezervaciju u bazu i vraća je s učitanim vezama."""
     db.add(booking)
     await db.flush()
     created = await get_by_id(db, booking.id)

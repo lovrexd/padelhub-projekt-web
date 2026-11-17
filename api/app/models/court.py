@@ -10,8 +10,6 @@ if TYPE_CHECKING:
 
 
 class Court(Base):
-    """Padel teren koji se može rezervirati po satnici."""
-
     __tablename__ = "courts"
     __table_args__ = (
         CheckConstraint("surface IN ('indoor', 'outdoor')", name="ck_court_surface"),

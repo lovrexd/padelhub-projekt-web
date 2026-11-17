@@ -1,11 +1,3 @@
-"""Početni podatci za lokalni razvoj i obranu projekta.
-
-Pokreće se iz mape api/, nakon alembic upgrade head:
-    python -m app.seed
-
-Skripta je idempotentna: može se pokrenuti više puta bez dupliranja zapisa.
-"""
-
 import asyncio
 from datetime import datetime, timedelta, timezone
 
@@ -13,13 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal, engine
+from app.core.schedule import CANCELLATION_DEADLINE_HOURS
 from app.core.security import hash_password
 from app.models import Booking, Court, MatchParticipant, User
 
 CET = timezone(timedelta(hours=1))
 
 DEMO_USERS = [
-    # (username, full_name, password, role, skill_level)
     ("admin@padel.hr", "Voditelj Centra", "admin123", "admin", 5.0),
     ("ivan@padel.hr", "Ivan Horvat", "player123", "player", 3.5),
     ("ana@padel.hr", "Ana Anić", "player123", "player", 4.0),
@@ -29,7 +21,6 @@ DEMO_USERS = [
 ]
 
 DEMO_COURTS = [
-    # (name, surface, hourly_rate)
     ("Teren 1 (Panoramic)", "indoor", 36),
     ("Teren 2 (Indoor)", "indoor", 32),
     ("Teren 3 (Outdoor)", "outdoor", 28),
@@ -99,7 +90,8 @@ async def get_or_create_booking(
             booking_type=booking_type,
             starts_at=starts_at,
             ends_at=ends_at,
-            cancellation_deadline=starts_at - timedelta(hours=24),
+            cancellation_deadline=starts_at
+            - timedelta(hours=CANCELLATION_DEADLINE_HOURS),
             max_players=4,
             min_level=min_level,
             max_level=max_level,
@@ -141,7 +133,6 @@ async def seed() -> None:
                 session, name, surface, hourly_rate
             )
 
-        # 1) Privatni termin (Teren 1, Ivan)
         s1 = datetime(2027, 3, 14, 17, 0, tzinfo=CET)
         await get_or_create_booking(
             session,
@@ -152,7 +143,6 @@ async def seed() -> None:
             ends_at=s1 + timedelta(minutes=90),
         )
 
-        # 2) Otvoreni meč 2/4 igrača za razinu 3.0 - 5.0 (Teren 2, Ana + Ivan)
         s2 = datetime(2027, 3, 14, 18, 0, tzinfo=CET)
         open_match = await get_or_create_booking(
             session,
@@ -167,7 +157,6 @@ async def seed() -> None:
         for uname in ("ana@padel.hr", "ivan@padel.hr"):
             await ensure_participant(session, open_match.id, users[uname].id)
 
-        # 3) Popunjeni otvoreni meč 4/4 igrača (Teren 3)
         s3 = datetime(2027, 3, 14, 19, 0, tzinfo=CET)
         full_match = await get_or_create_booking(
             session,

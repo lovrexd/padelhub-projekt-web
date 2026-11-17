@@ -12,7 +12,6 @@ router = APIRouter()
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Prijava korisnika — vraća pristupni i refresh JWT token."""
     user = await auth_service.authenticate_user(db, body.username, body.password)
     access, refresh = auth_service.create_tokens(user)
     return TokenResponse(access_token=access, refresh_token=refresh)
@@ -20,12 +19,10 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
-    """Izdaje novi par tokena na temelju valjanog refresh tokena."""
     access, refresh = await auth_service.refresh_tokens(db, body.refresh_token)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
-    """Vraća profil trenutno prijavljenog korisnika (bez lozinke)."""
     return current_user

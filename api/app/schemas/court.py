@@ -1,25 +1,31 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, StrictInt, field_validator
 
-from app.schemas.common import reject_null
+from app.schemas.common import MAX_INT32, reject_nul_char, reject_null
+
+CourtName = Annotated[
+    str,
+    Field(min_length=1, max_length=100),
+    AfterValidator(reject_nul_char),
+]
 
 
 class CourtCreate(BaseModel):
-    """Podatci za dodavanje novog padel terena."""
+    model_config = {"str_strip_whitespace": True}
 
-    name: str = Field(min_length=1, max_length=100)
+    name: CourtName
     surface: Literal["indoor", "outdoor"]
-    hourly_rate: int = Field(gt=0)
+    hourly_rate: StrictInt = Field(gt=0, le=MAX_INT32)
 
 
 class CourtUpdate(BaseModel):
-    """Podatci za djelomičnu izmjenu terena (PATCH)."""
+    model_config = {"str_strip_whitespace": True}
 
-    name: str | None = Field(default=None, min_length=1, max_length=100)
+    name: CourtName | None = None
     surface: Literal["indoor", "outdoor"] | None = None
-    hourly_rate: int | None = Field(default=None, gt=0)
+    hourly_rate: StrictInt | None = Field(default=None, gt=0, le=MAX_INT32)
 
     _not_null = field_validator("name", "surface", "hourly_rate", mode="before")(
         reject_null
@@ -27,8 +33,6 @@ class CourtUpdate(BaseModel):
 
 
 class CourtBrief(BaseModel):
-    """Sažetak terena unutar odgovora za rezervacije i mečeve."""
-
     name: str
     surface: str
     hourly_rate: int
@@ -37,8 +41,6 @@ class CourtBrief(BaseModel):
 
 
 class CourtResponse(BaseModel):
-    """Potpun prikaz padel terena."""
-
     id: int
     name: str
     surface: str
@@ -48,8 +50,6 @@ class CourtResponse(BaseModel):
 
 
 class CourtSlotResponse(BaseModel):
-    """Zauzeti vremenski raspon na terenu (bez osobnih podataka korisnika)."""
-
     starts_at: datetime
     ends_at: datetime
     booking_type: str

@@ -19,23 +19,22 @@ async def list_open_matches(
     limit: int,
     offset: int,
 ) -> list[Booking]:
-    """Vraća popis otvorenih mečeva vidljivih svim prijavljenim korisnicima."""
     return await match_repo.list_open_matches(
         db, court_id, status, upcoming_only, limit, offset
     )
 
 
-async def get_open_match(db: AsyncSession, match_id: int) -> Booking:
-    """Dohvaća otvoreni meč ili baca 404 ako ne postoji (ili je privatni termin)."""
-    match = await match_repo.get_open_match_by_id(db, match_id)
+async def get_open_match(
+    db: AsyncSession, match_id: int, for_update: bool = False
+) -> Booking:
+    match = await match_repo.get_open_match_by_id(db, match_id, for_update=for_update)
     if not match:
         raise AppError("not_found", "Otvoreni meč nije pronađen", 404)
     return match
 
 
 async def join_match(db: AsyncSession, match_id: int, current_user: User) -> Booking:
-    """Prijavljuje trenutnog korisnika u otvoreni meč uz provjeru svih pravila."""
-    match = await get_open_match(db, match_id)
+    match = await get_open_match(db, match_id, for_update=True)
     if match.status != "active":
         raise AppError("match_cancelled", "Otvoreni meč je otkazan", 400)
 
@@ -60,7 +59,7 @@ async def join_match(db: AsyncSession, match_id: int, current_user: User) -> Boo
 
     now = datetime.now(timezone.utc)
     if existing is not None:
-        # Igrač je ranije napustio meč i ponovno ulazi prije početka
+        # Odjavljeni igrač ponovno ulazi aktiviranjem postojećeg zapisa
         existing.status = "active"
         existing.joined_at = now
         await db.flush()
@@ -74,7 +73,6 @@ async def join_match(db: AsyncSession, match_id: int, current_user: User) -> Boo
         try:
             await match_repo.add_participant(db, participant)
         except IntegrityError:
-            # Zaštita ako dva istodobna zahtjeva za istog igrača stignu u isti čas
             raise AppError(
                 "already_joined", "Već ste prijavljeni u ovaj otvoreni meč", 409
             )
@@ -83,8 +81,7 @@ async def join_match(db: AsyncSession, match_id: int, current_user: User) -> Boo
 
 
 async def leave_match(db: AsyncSession, match_id: int, current_user: User) -> Booking:
-    """Odjavljuje korisnika iz otvorenog meča prije roka za otkazivanje."""
-    match = await get_open_match(db, match_id)
+    match = await get_open_match(db, match_id, for_update=True)
     if match.status != "active":
         raise AppError("match_cancelled", "Otvoreni meč je otkazan", 400)
 

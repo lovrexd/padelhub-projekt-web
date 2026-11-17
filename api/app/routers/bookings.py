@@ -19,7 +19,6 @@ async def list_bookings(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """Admin vidi sve rezervacije, a igrač isključivo svoje vlastite."""
     return await booking_service.list_bookings(
         db, user, court_id, booking_type, status, limit, offset
     )
@@ -31,7 +30,6 @@ async def create_booking(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Stvara novu privatnu rezervaciju ili otvoreni meč."""
     return await booking_service.create_booking(db, body, user)
 
 
@@ -41,7 +39,6 @@ async def get_booking(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Vraća detalje pojedine rezervacije (uz provjeru vlasništva)."""
     return await booking_service.get_booking(db, booking_id, user)
 
 
@@ -52,7 +49,6 @@ async def update_booking(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Djelomično mijenja rezervaciju prije isteka roka za izmjenu."""
     return await booking_service.update_booking(db, booking_id, body, user)
 
 
@@ -62,5 +58,4 @@ async def cancel_booking(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Otkazuje rezervaciju promjenom statusa u cancelled."""
     return await booking_service.cancel_booking(db, booking_id, user)

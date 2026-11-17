@@ -1,10 +1,3 @@
-"""Zajednička testna infrastruktura.
-
-Testovi rade nad zasebnom bazom padel_hub_test na istom PostgreSQL
-poslužitelju, tako da razvojni podatci u padel_hub ostaju netaknuti.
-Prije pokretanja testova: docker compose up -d db
-"""
-
 import asyncio
 import os
 from collections.abc import AsyncGenerator
@@ -32,7 +25,6 @@ def _test_database_url() -> str:
 
 TEST_DATABASE_URL = _test_database_url()
 
-# NullPool: svaki test ima svoju petlju događaja, pa veze ne smiju preživjeti test
 engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
 TestSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -58,13 +50,11 @@ async def _prepare_database() -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def test_database():
-    """Priprema čistu testnu bazu jednom na početku pokretanja testova."""
     asyncio.run(_prepare_database())
 
 
 @pytest.fixture(autouse=True)
 async def clean_tables():
-    """Prazni sve tablice prije svakog testa da testovi budu potpuno neovisni."""
     tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
@@ -82,7 +72,6 @@ async def _get_test_db() -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture
 async def client() -> AsyncGenerator[AsyncClient, None]:
-    """HTTP klijent nad aplikacijom, bez pokretanja poslužitelja."""
     app = create_app()
     app.dependency_overrides[get_db] = _get_test_db
     transport = ASGITransport(app=app)
@@ -92,20 +81,17 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 
 @pytest.fixture
 async def db() -> AsyncGenerator[AsyncSession, None]:
-    """Sesija za pripremu i provjeru zapisa izravno u testnoj bazi."""
     async with TestSessionLocal() as session:
         yield session
 
 
 def fast_hash(plain: str) -> str:
-    """Brzi bcrypt za testove (4 kruga umjesto uobičajenih 12)."""
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt(rounds=4)).decode()
 
 
 async def auth_header(
     client: AsyncClient, username: str, password: str
 ) -> dict[str, str]:
-    """Prijavljuje korisnika i vraća Authorization zaglavlje za daljnje zahtjeve."""
     resp = await client.post(
         "/auth/login", json={"username": username, "password": password}
     )
@@ -149,21 +135,6 @@ async def other_player_user(db: AsyncSession) -> User:
         password_hash=fast_hash("player123"),
         role="player",
         skill_level=4.0,
-    )
-    db.add(user)
-    await db.commit()
-    return user
-
-
-@pytest.fixture
-async def inactive_user(db: AsyncSession) -> User:
-    user = User(
-        username="inactive",
-        full_name="Neaktivan Igrač",
-        password_hash=fast_hash("pass123"),
-        role="player",
-        skill_level=3.0,
-        is_active=False,
     )
     db.add(user)
     await db.commit()

@@ -19,7 +19,6 @@ async def list_open_matches(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """Vraća popis javnih otvorenih mečeva za pridruživanje."""
     return await match_service.list_open_matches(
         db, court_id, status, upcoming_only, limit, offset
     )
@@ -31,7 +30,6 @@ async def get_open_match(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Vraća detalje otvorenog meča i popis aktivnih igrača."""
     return await match_service.get_open_match(db, match_id)
 
 
@@ -41,7 +39,6 @@ async def join_match(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Prijavljuje prijavljenog korisnika na slobodno mjesto u otvorenom meču."""
     return await match_service.join_match(db, match_id, user)
 
 
@@ -51,5 +48,4 @@ async def leave_match(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Odjavljuje korisnika iz otvorenog meča prije roka otkazivanja."""
     return await match_service.leave_match(db, match_id, user)

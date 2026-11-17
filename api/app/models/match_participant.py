@@ -20,8 +20,6 @@ if TYPE_CHECKING:
 
 
 class MatchParticipant(Base):
-    """Prijava igrača u otvoreni padel meč."""
-
     __tablename__ = "match_participants"
     __table_args__ = (
         UniqueConstraint(

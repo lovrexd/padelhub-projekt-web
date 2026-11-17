@@ -7,8 +7,6 @@ from app.schemas.court import CourtBrief
 
 
 class PlayerBrief(BaseModel):
-    """Osnovni javni prikaz igrača u otvorenom meču (bez e-pošte i lozinke)."""
-
     full_name: str
     skill_level: float
 
@@ -16,8 +14,6 @@ class PlayerBrief(BaseModel):
 
 
 class ParticipantResponse(BaseModel):
-    """Prijava igrača unutar otvorenog meča."""
-
     id: int
     player_id: int
     status: str
@@ -28,8 +24,6 @@ class ParticipantResponse(BaseModel):
 
 
 class OpenMatchResponse(BaseModel):
-    """Prikaz otvorenog padel meča sa slobodnim mjestima i aktivnim igračima."""
-
     id: int
     court_id: int
     creator_id: int

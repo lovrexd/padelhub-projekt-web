@@ -21,8 +21,6 @@ if TYPE_CHECKING:
 
 
 class Booking(Base):
-    """Rezervacija padel terena (privatni termin ili otvoreni meč)."""
-
     __tablename__ = "bookings"
     __table_args__ = (
         CheckConstraint(
@@ -78,10 +76,8 @@ class Booking(Base):
 
     @property
     def active_participants(self) -> list["MatchParticipant"]:
-        """Aktivni sudionici u ovom otvorenom meču."""
         return [p for p in self.participants if p.status == "active"]
 
     @property
     def active_players_count(self) -> int:
-        """Broj trenutno aktivnih igrača prijavljenih u ovaj termin."""
         return len(self.active_participants)

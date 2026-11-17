@@ -1,9 +1,10 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_role
+from app.core.schedule import CLUB_TZ
 from app.models.user import User
 from app.schemas.court import (
     CourtCreate,
@@ -24,7 +25,6 @@ async def list_courts(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """Vraća popis padel terena uz opcionalno filtriranje i straničenje."""
     return await court_service.list_courts(db, surface, limit, offset)
 
 
@@ -34,7 +34,6 @@ async def create_court(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role("admin")),
 ):
-    """Dodaje novi padel teren (samo voditelj centra / admin)."""
     return await court_service.create_court(db, body)
 
 
@@ -44,7 +43,6 @@ async def get_court(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Vraća detalje pojedinog terena."""
     return await court_service.get_court_or_404(db, court_id)
 
 
@@ -55,7 +53,6 @@ async def update_court(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role("admin")),
 ):
-    """Djelomično mijenja podatke terena (samo admin)."""
     return await court_service.update_court(db, court_id, body)
 
 
@@ -65,16 +62,14 @@ async def delete_court(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role("admin")),
 ):
-    """Briše teren ako nema postojećih rezervacija (samo admin)."""
     await court_service.delete_court(db, court_id)
 
 
 @router.get("/{court_id}/availability", response_model=list[CourtSlotResponse])
 async def get_court_availability(
     court_id: int,
-    day: date = Query(default_factory=lambda: datetime.now(timezone.utc).date()),
+    day: date = Query(default_factory=lambda: datetime.now(CLUB_TZ).date()),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
 ):
-    """Prikazuje zauzete termine na terenu za odabrani dan (bez osobnih podataka)."""
     return await court_service.get_court_availability(db, court_id, day)
