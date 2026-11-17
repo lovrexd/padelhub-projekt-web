@@ -1,4 +1,6 @@
+from collections.abc import Sequence
 from datetime import date, datetime, time
+from typing import Protocol
 from zoneinfo import ZoneInfo
 
 from app.core.errors import AppError
@@ -6,10 +8,16 @@ from app.core.errors import AppError
 CLUB_TZ = ZoneInfo("Europe/Zagreb")
 OPENING_TIME = time(9, 0)
 CLOSING_TIME = time(23, 0)
+MIN_BOOKABLE_GAP_SECONDS = 60 * 60
 ALLOWED_DURATIONS_SECONDS = (60 * 60, 90 * 60, 120 * 60)
 
 # Fiksni neradni dani: Nova godina, Božić i Stara godina
 FIXED_HOLIDAYS = {(1, 1), (12, 25), (12, 31)}
+
+
+class HasTimeSlot(Protocol):
+    starts_at: datetime
+    ends_at: datetime
 
 
 def calculate_easter_sunday(year: int) -> date:
@@ -35,6 +43,15 @@ def is_club_holiday(day: date) -> bool:
     """Vraća True ako klub taj dan ne radi (Nova godina, Uskrs, Božić, Stara)."""
     return (day.month, day.day) in FIXED_HOLIDAYS or day == calculate_easter_sunday(
         day.year
+    )
+
+
+def club_day_window(starts_at: datetime) -> tuple[datetime, datetime]:
+    """Vraća početak (09:00) i kraj (23:00) radnog dana u lokalnoj zoni."""
+    local_day = starts_at.astimezone(CLUB_TZ).date()
+    return (
+        datetime.combine(local_day, OPENING_TIME, tzinfo=CLUB_TZ),
+        datetime.combine(local_day, CLOSING_TIME, tzinfo=CLUB_TZ),
     )
 
 
@@ -77,5 +94,31 @@ def validate_player_booking_slot(starts_at: datetime, ends_at: datetime) -> None
         raise AppError(
             "invalid_slot_duration",
             "Igrači mogu rezervirati termin samo na 60, 90 ili 120 minuta",
+            400,
+        )
+
+
+def validate_no_orphan_gap(
+    starts_at: datetime, ends_at: datetime, day_slots: Sequence[HasTimeSlot]
+) -> None:
+    """Sprječava ostavljanje rupe kraće od 60 min (npr. 09:00-09:30 ili 22:30-23:00)."""
+    day_open, day_close = club_day_window(starts_at)
+
+    prev_ends = [s.ends_at for s in day_slots if s.ends_at <= starts_at]
+    next_starts = [s.starts_at for s in day_slots if s.starts_at >= ends_at]
+
+    left_bound = max([day_open, *prev_ends])
+    right_bound = min([day_close, *next_starts])
+
+    gap_before = (starts_at - left_bound).total_seconds()
+    gap_after = (right_bound - ends_at).total_seconds()
+
+    if (
+        0 < gap_before < MIN_BOOKABLE_GAP_SECONDS
+        or 0 < gap_after < MIN_BOOKABLE_GAP_SECONDS
+    ):
+        raise AppError(
+            "unusable_gap_left",
+            "Rezervacija ne smije ostaviti neiskoristivu rupu manju od 60 minuta",
             400,
         )

@@ -4,11 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.phases import BookingPhase, get_booking_phase
-from app.core.schedule import validate_player_booking_slot
+from app.core.schedule import (
+    club_day_window,
+    validate_no_orphan_gap,
+    validate_player_booking_slot,
+)
 from app.models.booking import Booking
 from app.models.match_participant import MatchParticipant
 from app.models.user import User
-from app.repositories import booking_repo
+from app.repositories import booking_repo, court_repo
 from app.schemas.booking import BookingCreate, BookingUpdate
 from app.services.court_service import get_court_or_404
 
@@ -48,6 +52,43 @@ async def get_booking(db: AsyncSession, booking_id: int, current_user: User) -> 
     return booking
 
 
+async def _ensure_slot_available(
+    db: AsyncSession,
+    court_id: int,
+    starts_at: datetime,
+    ends_at: datetime,
+    current_user: User,
+    exclude_booking_id: int | None = None,
+) -> None:
+    """Provjerava pravila termina za igrače, postojanje terena, preklapanje i rupe."""
+    if current_user.role != "admin":
+        validate_player_booking_slot(starts_at, ends_at)
+
+    await get_court_or_404(db, court_id)
+
+    if await booking_repo.has_overlapping_booking(
+        db,
+        court_id,
+        starts_at,
+        ends_at,
+        exclude_booking_id=exclude_booking_id,
+    ):
+        raise AppError(
+            "slot_conflict", "Odabrani termin na ovom terenu je već zauzet", 409
+        )
+
+    if current_user.role != "admin":
+        day_open, day_close = club_day_window(starts_at)
+        day_slots = await court_repo.list_occupied_slots(
+            db,
+            court_id,
+            day_open,
+            day_close,
+            exclude_booking_id=exclude_booking_id,
+        )
+        validate_no_orphan_gap(starts_at, ends_at, day_slots)
+
+
 async def create_booking(
     db: AsyncSession, body: BookingCreate, current_user: User
 ) -> Booking:
@@ -56,17 +97,9 @@ async def create_booking(
     if body.starts_at <= now:
         raise AppError("slot_in_past", "Termin mora biti u budućnosti", 400)
 
-    if current_user.role != "admin":
-        validate_player_booking_slot(body.starts_at, body.ends_at)
-
-    court = await get_court_or_404(db, body.court_id)
-
-    if await booking_repo.has_overlapping_booking(
-        db, court.id, body.starts_at, body.ends_at
-    ):
-        raise AppError(
-            "slot_conflict", "Odabrani termin na ovom terenu je već zauzet", 409
-        )
+    await _ensure_slot_available(
+        db, body.court_id, body.starts_at, body.ends_at, current_user
+    )
 
     deadline = (
         body.cancellation_deadline
@@ -75,7 +108,7 @@ async def create_booking(
     )
 
     booking = Booking(
-        court_id=court.id,
+        court_id=body.court_id,
         creator_id=current_user.id,
         booking_type=body.booking_type,
         starts_at=body.starts_at,
@@ -139,21 +172,14 @@ async def update_booking(
             400,
         )
 
-    if current_user.role != "admin":
-        validate_player_booking_slot(new_starts_at, new_ends_at)
-
-    await get_court_or_404(db, new_court_id)
-
-    if await booking_repo.has_overlapping_booking(
+    await _ensure_slot_available(
         db,
         new_court_id,
         new_starts_at,
         new_ends_at,
+        current_user,
         exclude_booking_id=booking.id,
-    ):
-        raise AppError(
-            "slot_conflict", "Odabrani termin na ovom terenu je već zauzet", 409
-        )
+    )
 
     for field, value in changes.items():
         setattr(booking, field, value)

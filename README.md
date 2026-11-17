@@ -172,7 +172,7 @@ Faza termina (`app/core/phases.py`) ne sprema se u bazu nego se računa pri svak
 | Odjava iz otvorenog meča (`/matches/{id}/leave`) | dopušteno | zabranjeno (`400`) | zabranjeno (`400`) |
 
 Dodatna pravila koja provodi backend (i ograničenja u bazi):
-- **Radno vrijeme, blagdani i fiksni termini za igrače:** igrač (`player`) može rezervirati termin samo unutar **09:00–23:00** po lokalnom vremenu (`Europe/Zagreb`), s početkom na puni sat ili pola sata (`:00` ili `:30`) u trajanju od **60, 90 ili 120 minuta**, te nikad na **Božić (25.12.), Staru godinu (31.12.), Novu godinu (01.01.) ni Uskrs**. Voditelj centra (`admin`) smije rezervirati bilo koji raspon (npr. višednevnu blokadu terena radi održavanja).
+- **Radno vrijeme, blagdani i fiksni termini za igrače:** igrač (`player`) može rezervirati termin samo unutar **09:00–23:00** po lokalnom vremenu (`Europe/Zagreb`), s početkom na puni sat ili pola sata (`:00` ili `:30`) u trajanju od **60, 90 ili 120 minuta**, bez ostavljanja neiskoristive rupe kraće od 60 minuta prije ili poslije termina (npr. `09:30–11:00` na prazan dan ili `21:00–22:30` pred kraj dana → `400 unusable_gap_left`), te nikad na **Božić (25.12.), Staru godinu (31.12.), Novu godinu (01.01.) ni Uskrs**. Voditelj centra (`admin`) smije rezervirati bilo koji raspon (npr. višednevnu blokadu terena radi održavanja).
 - **Zabrana preklapanja termina:** na istom terenu aktivne rezervacije ne smiju se preklapati (`409 slot_conflict`).
 - **Kapacitet i jedinstvenost:** otvoreni meč prima do `max_players` (`2` ili `4`) aktivnih igrača (`409 match_full`), a `UNIQUE (booking_id, player_id)` sprječava dvostruku prijavu istog igrača (`409 already_joined`).
 - **Razina igre:** igrač može ući u otvoreni meč samo ako mu je `skill_level` unutar `[min_level, max_level]` (`400 skill_out_of_range`).
@@ -191,6 +191,7 @@ Svaka pogreška vraća JSON oblik `{"code": "...", "message": "..."}`, a `422` u
 | `400` | `club_closed_holiday` | Klub ne radi na Božić, Staru godinu, Novu godinu i Uskrs |
 | `400` | `invalid_slot_alignment` | Termin za igrača mora početi na puni sat ili pola sata (`:00` / `:30`) |
 | `400` | `invalid_slot_duration` | Trajanje termina za igrača mora biti 60, 90 ili 120 minuta |
+| `400` | `unusable_gap_left` | Rezervacija ostavlja neiskoristivu rupu manju od 60 minuta |
 | `400` | `deadline_passed` | Istekao je rok za izmjenu, otkazivanje ili odjavu |
 | `400` | `booking_cancelled` | Otkazana rezervacija ne može se uređivati |
 | `400` | `invalid_time_range` | Početak termina mora biti prije kraja |
