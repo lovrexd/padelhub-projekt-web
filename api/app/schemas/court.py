@@ -12,7 +12,6 @@ class CourtCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     surface: Literal["indoor", "outdoor"]
     hourly_rate: int = Field(gt=0)
-    is_active: bool = True
 
 
 class CourtUpdate(BaseModel):
@@ -21,11 +20,10 @@ class CourtUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     surface: Literal["indoor", "outdoor"] | None = None
     hourly_rate: int | None = Field(default=None, gt=0)
-    is_active: bool | None = None
 
-    _not_null = field_validator(
-        "name", "surface", "hourly_rate", "is_active", mode="before"
-    )(reject_null)
+    _not_null = field_validator("name", "surface", "hourly_rate", mode="before")(
+        reject_null
+    )
 
 
 class CourtBrief(BaseModel):
@@ -46,7 +44,6 @@ class CourtResponse(BaseModel):
     name: str
     surface: str
     hourly_rate: int
-    is_active: bool
 
     model_config = {"from_attributes": True}
 

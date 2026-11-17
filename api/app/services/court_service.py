@@ -20,13 +20,12 @@ async def get_court_or_404(db: AsyncSession, court_id: int) -> Court:
 
 async def list_courts(
     db: AsyncSession,
-    is_active: bool | None,
     surface: str | None,
     limit: int,
     offset: int,
 ) -> list[Court]:
     """Vraća straničeni popis terena."""
-    return await court_repo.list_courts(db, is_active, surface, limit, offset)
+    return await court_repo.list_courts(db, surface, limit, offset)
 
 
 async def create_court(db: AsyncSession, body: CourtCreate) -> Court:
@@ -48,6 +47,25 @@ async def update_court(db: AsyncSession, court_id: int, body: CourtUpdate) -> Co
     except IntegrityError:
         raise AppError("duplicate", "Teren s tim nazivom već postoji", 409)
     return court
+
+
+async def delete_court(db: AsyncSession, court_id: int) -> None:
+    """Briše teren ako na njemu nema nikakvih rezervacija."""
+    court = await get_court_or_404(db, court_id)
+    if await court_repo.has_bookings(db, court.id):
+        raise AppError(
+            "has_bookings",
+            "Teren ima postojeće rezervacije i ne može se obrisati",
+            409,
+        )
+    try:
+        await court_repo.delete(db, court)
+    except IntegrityError:
+        raise AppError(
+            "has_bookings",
+            "Teren ima postojeće rezervacije i ne može se obrisati",
+            409,
+        )
 
 
 async def get_court_availability(

@@ -20,13 +20,12 @@ router = APIRouter()
 async def list_courts(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "player")),
-    is_active: bool | None = Query(default=None),
     surface: str | None = Query(default=None, pattern=r"^(indoor|outdoor)$"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
     """Vraća popis padel terena uz opcionalno filtriranje i straničenje."""
-    return await court_service.list_courts(db, is_active, surface, limit, offset)
+    return await court_service.list_courts(db, surface, limit, offset)
 
 
 @router.post("/", response_model=CourtResponse, status_code=201)
@@ -58,6 +57,16 @@ async def update_court(
 ):
     """Djelomično mijenja podatke terena (samo admin)."""
     return await court_service.update_court(db, court_id, body)
+
+
+@router.delete("/{court_id}", status_code=204)
+async def delete_court(
+    court_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Briše teren ako nema postojećih rezervacija (samo admin)."""
+    await court_service.delete_court(db, court_id)
 
 
 @router.get("/{court_id}/availability", response_model=list[CourtSlotResponse])

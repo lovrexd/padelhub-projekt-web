@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking import Booking
@@ -14,15 +14,12 @@ async def get_by_id(db: AsyncSession, court_id: int) -> Court | None:
 
 async def list_courts(
     db: AsyncSession,
-    is_active: bool | None = None,
     surface: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> list[Court]:
-    """Vraća popis padel terena uz opcionalne filtre i straničenje."""
+    """Vraća popis padel terena uz opcionalni filtar podloge i straničenje."""
     stmt = select(Court)
-    if is_active is not None:
-        stmt = stmt.where(Court.is_active == is_active)
     if surface is not None:
         stmt = stmt.where(Court.surface == surface)
     stmt = stmt.order_by(Court.id).limit(limit).offset(offset)
@@ -35,6 +32,18 @@ async def create(db: AsyncSession, court: Court) -> Court:
     db.add(court)
     await db.flush()
     return court
+
+
+async def delete(db: AsyncSession, court: Court) -> None:
+    """Briše teren iz baze."""
+    await db.delete(court)
+    await db.flush()
+
+
+async def has_bookings(db: AsyncSession, court_id: int) -> bool:
+    """Provjerava ima li teren ijednu postojeću rezervaciju u bazi."""
+    stmt = select(exists().where(Booking.court_id == court_id))
+    return bool(await db.scalar(stmt))
 
 
 async def list_occupied_slots(

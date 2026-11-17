@@ -56,8 +56,6 @@ async def create_booking(
         raise AppError("slot_in_past", "Termin mora biti u budućnosti", 400)
 
     court = await get_court_or_404(db, body.court_id)
-    if not court.is_active:
-        raise AppError("court_inactive", "Odabrani teren trenutno nije aktivan", 400)
 
     if await booking_repo.has_overlapping_booking(
         db, court.id, body.starts_at, body.ends_at
@@ -137,9 +135,7 @@ async def update_booking(
             400,
         )
 
-    court = await get_court_or_404(db, new_court_id)
-    if not court.is_active:
-        raise AppError("court_inactive", "Odabrani teren trenutno nije aktivan", 400)
+    await get_court_or_404(db, new_court_id)
 
     if await booking_repo.has_overlapping_booking(
         db,
@@ -185,9 +181,7 @@ async def reactivate_booking(
     if get_booking_phase(booking) != BookingPhase.OPEN_CHANGE:
         raise AppError("deadline_passed", "Rok za ponovnu aktivaciju je istekao", 400)
 
-    court = await get_court_or_404(db, booking.court_id)
-    if not court.is_active:
-        raise AppError("court_inactive", "Odabrani teren trenutno nije aktivan", 400)
+    await get_court_or_404(db, booking.court_id)
 
     if await booking_repo.has_overlapping_booking(
         db,

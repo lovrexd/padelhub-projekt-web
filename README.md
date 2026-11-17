@@ -26,7 +26,7 @@ api/                 # backend: FastAPI
     repositories/    # SQLAlchemy upiti prema bazi podataka
     models/          # ORM modeli tablica u PostgreSQL-u
     seed.py          # idempotentna skripta za početne podatke
-  alembic/           # migracije sheme baze podataka (001, 002)
+  alembic/           # migracije sheme baze podataka (001-003)
   tests/             # pytest testovi nad zasebnom bazom padel_hub_test
 web/                 # frontend: Vue 3 (dolazi u 2. dijelu projekta)
 docker-compose.yml   # PostgreSQL 16 baza podataka
@@ -132,7 +132,7 @@ Skripta upisuje voditelja centra, pet igrača različitih razina igre, četiri p
 
 ---
 
-## Krajnje točke (19 ruta)
+## Krajnje točke (20 ruta)
 
 Svi popisi primaju parametre straničenja `limit` (zadano `20`, najviše `100`) i `offset` (zadano `0`).
 
@@ -142,10 +142,11 @@ Svi popisi primaju parametre straničenja `limit` (zadano `20`, najviše `100`) 
 | `POST` | `/auth/login` | javno | Prijava; vraća `access_token` (15 min) i `refresh_token` (7 dana) |
 | `POST` | `/auth/refresh` | javno | Izdaje novi par tokena na temelju valjanog `refresh_token`-a |
 | `GET` | `/auth/me` | `admin`, `player` | Profil prijavljenog korisnika (bez `password_hash`) |
-| `GET` | `/courts/` | `admin`, `player` | Popis terena (`is_active`, `surface`, `limit`, `offset`) |
+| `GET` | `/courts/` | `admin`, `player` | Popis terena (`surface`, `limit`, `offset`) |
 | `POST` | `/courts/` | `admin` | Dodavanje novog terena (`UNIQUE` naziv -> `409 duplicate`) |
 | `GET` | `/courts/{court_id}` | `admin`, `player` | Detalji terena |
 | `PATCH` | `/courts/{court_id}` | `admin` | Djelomična izmjena terena |
+| `DELETE` | `/courts/{court_id}` | `admin` | Brisanje terena ako nema rezervacija (`409 has_bookings`) |
 | `GET` | `/courts/{court_id}/availability` | `admin`, `player` | Zauzeti termini na terenu za `day` (bez osobnih podataka) |
 | `GET` | `/bookings/` | `admin`, `player` | `admin` vidi sve; `player` isključivo vlastite rezervacije |
 | `POST` | `/bookings/` | `admin`, `player` | Nova privatna rezervacija ili otvoreni meč (kreator ulazi kao 1/N) |
@@ -175,6 +176,7 @@ Dodatna pravila koja provodi backend (i ograničenja u bazi):
 - **Zabrana preklapanja termina:** na istom terenu aktivne rezervacije ne smiju se preklapati (`409 slot_conflict`).
 - **Kapacitet i jedinstvenost:** otvoreni meč prima do `max_players` (`2` ili `4`) aktivnih igrača (`409 match_full`), a `UNIQUE (booking_id, player_id)` sprječava dvostruku prijavu istog igrača (`409 already_joined`).
 - **Razina igre:** igrač može ući u otvoreni meč samo ako mu je `skill_level` unutar `[min_level, max_level]` (`400 skill_out_of_range`).
+- **Brisanje terena:** teren koji ima postojeće rezervacije ne može se obrisati (`409 has_bookings`).
 
 ---
 
@@ -185,7 +187,6 @@ Svaka pogreška vraća JSON oblik `{"code": "...", "message": "..."}`, a `422` u
 | HTTP status | `code` | Značenje |
 |-------------|--------|----------|
 | `400` | `slot_in_past` | Odabrani početak termina je u prošlosti |
-| `400` | `court_inactive` | Teren trenutno nije aktivan |
 | `400` | `deadline_passed` | Istekao je rok za izmjenu, otkazivanje, reaktivaciju ili odjavu |
 | `400` | `booking_cancelled` | Otkazana rezervacija ne može se uređivati prije reaktivacije |
 | `400` | `invalid_time_range` | Početak termina mora biti prije kraja |
@@ -205,6 +206,7 @@ Svaka pogreška vraća JSON oblik `{"code": "...", "message": "..."}`, a `422` u
 | `404` | `not_found` | Traženi zapis ili ruta ne postoji |
 | `405` | `method_not_allowed` | HTTP metoda nije podržana na toj ruti |
 | `409` | `duplicate` | Već postoji teren s tim nazivom |
+| `409` | `has_bookings` | Teren ima postojeće rezervacije i ne može se obrisati |
 | `409` | `slot_conflict` | Termin na odabranom terenu preklapa se s postojećim aktivnim terminom |
 | `409` | `already_joined` | Igrač je već prijavljen u taj otvoreni meč |
 | `409` | `match_full` | Otvoreni meč je već dosegao `max_players` |
