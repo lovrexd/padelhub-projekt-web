@@ -132,7 +132,7 @@ Skripta upisuje voditelja centra, pet igrača različitih razina igre, četiri p
 
 ---
 
-## Krajnje točke (20 ruta)
+## Krajnje točke (19 ruta)
 
 Svi popisi primaju parametre straničenja `limit` (zadano `20`, najviše `100`) i `offset` (zadano `0`).
 
@@ -153,7 +153,6 @@ Svi popisi primaju parametre straničenja `limit` (zadano `20`, najviše `100`) 
 | `GET` | `/bookings/{booking_id}` | `admin`, `player` | Detalji rezervacije (`403` ako `player` gleda tuđu) |
 | `PATCH` | `/bookings/{booking_id}` | `admin`, `player` | Izmjena vlastite rezervacije u fazi `open_change` |
 | `POST` | `/bookings/{booking_id}/cancel` | `admin`, `player` | Meko otkazivanje (`status = cancelled`) u fazi `open_change` |
-| `POST` | `/bookings/{booking_id}/reactivate` | `admin`, `player` | Ponovna aktivacija ako rok nije prošao i termin je slobodan |
 | `GET` | `/matches/` | `admin`, `player` | Popis javnih otvorenih mečeva (`court_id`, `status`, `upcoming_only`) |
 | `GET` | `/matches/{match_id}` | `admin`, `player` | Detalji otvorenog meča s popisom aktivnih igrača (`404` za privatne) |
 | `POST` | `/matches/{match_id}/join` | `admin`, `player` | Prijava u otvoreni meč (`open_change` i `locked`, do popune kapaciteta) |
@@ -168,7 +167,7 @@ Faza termina (`app/core/phases.py`) ne sprema se u bazu nego se računa pri svak
 | Radnja | `open_change` (do roka otkazivanja) | `locked` (od roka do početka) | `started` (od početka nadalje) |
 |--------|--------------------------------------|-------------------------------|--------------------------------|
 | Čitanje termina i mečeva | dopušteno | dopušteno | dopušteno |
-| Izmjena rezervacije (`PATCH`), otkaz, reaktivacija | dopušteno | zabranjeno (`400`) | zabranjeno (`400`) |
+| Izmjena rezervacije (`PATCH`), otkazivanje | dopušteno | zabranjeno (`400`) | zabranjeno (`400`) |
 | Prijava u otvoreni meč (`/matches/{id}/join`) | dopušteno | dopušteno | zabranjeno (`400`) |
 | Odjava iz otvorenog meča (`/matches/{id}/leave`) | dopušteno | zabranjeno (`400`) | zabranjeno (`400`) |
 
@@ -187,14 +186,13 @@ Svaka pogreška vraća JSON oblik `{"code": "...", "message": "..."}`, a `422` u
 | HTTP status | `code` | Značenje |
 |-------------|--------|----------|
 | `400` | `slot_in_past` | Odabrani početak termina je u prošlosti |
-| `400` | `deadline_passed` | Istekao je rok za izmjenu, otkazivanje, reaktivaciju ili odjavu |
-| `400` | `booking_cancelled` | Otkazana rezervacija ne može se uređivati prije reaktivacije |
+| `400` | `deadline_passed` | Istekao je rok za izmjenu, otkazivanje ili odjavu |
+| `400` | `booking_cancelled` | Otkazana rezervacija ne može se uređivati |
 | `400` | `invalid_time_range` | Početak termina mora biti prije kraja |
 | `400` | `invalid_deadlines` | Rok za otkazivanje ne može biti nakon početka termina |
 | `400` | `invalid_level_range` | Minimalna razina ne smije biti veća od maksimalne |
 | `400` | `capacity_too_low` | Novi kapacitet manji je od broja već prijavljenih igrača |
 | `400` | `already_cancelled` | Rezervacija je već otkazana |
-| `400` | `already_active` | Rezervacija je već aktivna |
 | `400` | `match_cancelled` | Otvoreni meč je otkazan |
 | `400` | `match_started` | Otvoreni meč je već počeo i prijava više nije moguća |
 | `400` | `skill_out_of_range` | Razina igre korisnika ne odgovara rasponu meča |

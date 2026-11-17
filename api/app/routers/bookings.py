@@ -64,13 +64,3 @@ async def cancel_booking(
 ):
     """Otkazuje rezervaciju promjenom statusa u cancelled."""
     return await booking_service.cancel_booking(db, booking_id, user)
-
-
-@router.post("/{booking_id}/reactivate", response_model=BookingResponse)
-async def reactivate_booking(
-    booking_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "player")),
-):
-    """Ponovno aktivira otkazanu rezervaciju ako termin nije u međuvremenu zauzet."""
-    return await booking_service.reactivate_booking(db, booking_id, user)

@@ -169,31 +169,3 @@ async def cancel_booking(
     booking.status = "cancelled"
     await db.flush()
     return booking
-
-
-async def reactivate_booking(
-    db: AsyncSession, booking_id: int, current_user: User
-) -> Booking:
-    """Ponovno aktivira otkazanu rezervaciju ako je termin još slobodan i u roku."""
-    booking = await get_booking(db, booking_id, current_user)
-    if booking.status == "active":
-        raise AppError("already_active", "Rezervacija je već aktivna", 400)
-    if get_booking_phase(booking) != BookingPhase.OPEN_CHANGE:
-        raise AppError("deadline_passed", "Rok za ponovnu aktivaciju je istekao", 400)
-
-    await get_court_or_404(db, booking.court_id)
-
-    if await booking_repo.has_overlapping_booking(
-        db,
-        booking.court_id,
-        booking.starts_at,
-        booking.ends_at,
-        exclude_booking_id=booking.id,
-    ):
-        raise AppError(
-            "slot_conflict", "U međuvremenu je netko drugi rezervirao ovaj termin", 409
-        )
-
-    booking.status = "active"
-    await db.flush()
-    return booking
