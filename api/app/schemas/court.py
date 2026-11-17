@@ -29,7 +29,6 @@ class CourtUpdate(BaseModel):
 class CourtBrief(BaseModel):
     """Sažetak terena unutar odgovora za rezervacije i mečeve."""
 
-    id: int
     name: str
     surface: str
     hourly_rate: int

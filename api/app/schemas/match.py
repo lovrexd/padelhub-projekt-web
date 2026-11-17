@@ -9,7 +9,6 @@ from app.schemas.court import CourtBrief
 class PlayerBrief(BaseModel):
     """Osnovni javni prikaz igrača u otvorenom meču (bez e-pošte i lozinke)."""
 
-    id: int
     full_name: str
     skill_level: float
 
